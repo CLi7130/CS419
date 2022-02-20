@@ -1,0 +1,34 @@
+Name: Craig Li
+Date: 2/20/22
+iLab Machines used: ilab1, rm
+CS419 - Computer Security
+
+To run:
+    Authorization program can be run by executing the following command in the directory
+    that has the auth.py file (replace [command] and [args] with desired input)
+
+    python3 auth.py [command] [args]
+
+    There is no setup required for the program, but upon execution, it creates a subdirectory of tables containing all relevant information for the project (./tables).
+    This subdirectory contains different subdirectories that each store pickle files representing tables of users, domains, operations, and types (depending on the folder). It is only created if it does not already exist, which creates persistent data for use in the program.
+
+
+Testing:
+    There is a sample testing bash script that is included in the submission (testSuite.sh) that can be run by the following command :
+
+    ./testSuite.sh
+
+    (This can also be piped to a text file for easier reading via: ./testSuite.sh > results.txt)
+
+    Be warned, the test suite will delete the current tables folder and create a new folder with new information used for testing.  This can be changed by going into the bash file and commenting out line 3 (rm -rf tables).  Testing methodology should be relatively self-explanatory based on comments added to the output of the script, but they are also outlined below.
+
+    Methodology:
+    A number of tests were created to test the following:
+        1. Blank input for certain functions
+            - passwords are allowed to be blank
+        2. Valid function Input
+        3. Invalid function input
+            - missing parameters
+            - nonexistent parameters
+                - in some cases, this is fine, and results in the creation of domains/types not already present
+
