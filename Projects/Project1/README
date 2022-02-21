@@ -13,8 +13,8 @@ To run:
     This subdirectory contains different subdirectories that each store pickle files representing tables of users, domains, operations, and types (depending on the folder). It is only created if it does not already exist, which creates persistent data for use in the program.
 
 
-Testing:
-    There is a sample testing bash script that is included in the submission (testSuite.sh) that can be run by the following command :
+Testing (test file is not necessary for program functionality):
+    There is a sample, optional testing bash script that is included in the submission (testSuite.sh) that can be run by the following command :
 
     ./testSuite.sh
 
