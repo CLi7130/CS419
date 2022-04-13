@@ -1,0 +1,225 @@
+#!/usr/bin/python3
+
+
+import sys
+import os
+import binascii
+from os.path import exists
+
+# given values for Linear Congruential Generator
+LCG_MODULUS = 256
+LCG_MULTIPLIER = 1103515245
+LCG_INCREMENT = 12345
+PYTHON_SDBM_MOD = 18446744073709551616
+
+MAX_BLOCK_SIZE = 16
+INIT_VECTOR = bytearray()
+PREV_CIPHER_BLOCK = bytearray()
+KEY = bytearray()
+CURR_KEYSTREAM_VAL = 0
+
+DEBUG = 0
+
+# Linear Congruential Generator
+def getLCGValue(seed):
+    seed = (LCG_MULTIPLIER * seed + LCG_INCREMENT) % LCG_MODULUS
+    return seed
+
+#sdbm hash algorithm, need to mod hash because python << works differently
+def sbdm(password: str) -> int:
+    hash = 0
+    for c in password:
+        hash = ord(c) + (hash << 6) + (hash << 16) - hash
+        hash = hash % PYTHON_SDBM_MOD
+    return hash
+
+def generatePadding(block):
+    blockSize = len(block)
+    padSize = MAX_BLOCK_SIZE - blockSize
+    
+    if padSize == 0:
+        padSize = MAX_BLOCK_SIZE
+    padValue = padSize.to_bytes(1, sys.byteorder)
+
+    if DEBUG:
+        print()
+        print("Padding Block:")
+        print("Block: ", block)
+        print("Block length: ", len(block))
+        print("Pad Size: ", padSize)
+        print("Pad Value: ", padValue)
+        print()
+
+    paddedBlock = block.ljust(MAX_BLOCK_SIZE, padValue)
+
+    if blockSize == MAX_BLOCK_SIZE:
+        #return extra block concatenated with orginal 16 byte block
+        paddedBlock = paddedBlock.ljust(2 * MAX_BLOCK_SIZE, padValue)
+    
+    return paddedBlock
+
+def createInitVector(password):
+    global INIT_VECTOR
+    seed = sbdm(password)
+    if DEBUG:
+        print("Seed: ", seed)
+
+    INIT_VECTOR = createKey(seed)
+    
+def createKey(seed):
+    global CURR_KEYSTREAM_VAL
+    vector = bytearray()
+    for x in range(MAX_BLOCK_SIZE):
+        seed = getLCGValue(seed)
+        CURR_KEYSTREAM_VAL = seed
+        vector.extend(seed.to_bytes(1, sys.byteorder))
+
+    if DEBUG:
+        temp = "[ " + ' '.join('{:02x}'.format(x) for x in vector) + " ]"
+        print("NEW KEY_VAL:", temp)
+        print()
+    
+    return vector
+
+def shuffleBytes(block):
+    #for ( i = 0; i < blockSize; i++){
+    # first = key[i] & 0xf
+    # second = key[i] >> 4 & 0xf
+    # swap(block[first], block[second])
+    # }
+    if DEBUG:
+        print()
+        print("Shuffling Bytes:")
+    global KEY
+    for x in range(MAX_BLOCK_SIZE):
+        first = KEY[x] & 0xf
+        second = (KEY[x] >> 4) & 0xf
+        if DEBUG:
+            firstBlockVal = ''.join('{:02x}'.format(block[first]))
+            secondBlockVal = ''.join('{:02x}'.format(block[second]))
+            print(str(x) + ": swapping (" + str(first) + ", " +  str(second) + ") " 
+                    + "= [", firstBlockVal, "<>", secondBlockVal, "]")
+        block[first], block[second] = block[second], block[first]
+    
+    if DEBUG:
+        temp = "[ " + ' '.join('{:02x}'.format(x) for x in block) + " ]"
+        print("After Shuffle:", temp)
+        print()  
+    return block
+
+def cipherBlockChaining(firstBlock, secondBlock):
+
+    if DEBUG:
+        print()
+        print("CBC:")
+
+    temp_block = bytearray()
+    for x in range(MAX_BLOCK_SIZE):
+        # plaintext[x] ^ ciphertextBlock[x]
+        # temp_block[x] ^ keystream[x]
+        xorVal = firstBlock[x] ^ secondBlock[x]
+        if DEBUG:
+            print(hex(firstBlock[x]), "xor", hex(secondBlock[x]), "=", hex(xorVal))
+        temp_block.extend(xorVal.to_bytes(1, sys.byteorder))
+    if DEBUG:
+        temp = "[ " + ' '.join('{:02x}'.format(x) for x in temp_block) + " ]"
+        print("after xor:", temp)
+    
+    return temp_block
+
+def main():
+    # usage
+    # sbencrypt [-d] password plaintextfile ciphertextfile
+    # sbdecrypt [-d] password ciphertextfile plaintextfile
+
+    #{
+    # 1. Check if last block in file
+    #   1a. add padding before any encryption/shuffling
+    # 2. Apply CBC: temp_block = plaintext_block xor ciphertext_block
+    #       2a. if this is the first block, create the IV by pulling the first 16 bytes from the keystream
+    #       2b. IV replaces ciphertext_block in step 2
+    # 3. Read new 16 bytes from keystream into keystream_block
+    # 4. Shuffle bytes based on keystream data
+    # 5. ciphertext_block = temp_block xor keystream_block
+    # 6. Write ciphertext_block to file
+    # }
+
+    if len(sys.argv) != 4:
+        print("[Error] Invalid Number of Arguments")
+        exit()
+
+    #put in error checking for null/missing values/arguments
+
+    password = sys.argv[1]
+    plaintextFile = sys.argv[2]
+    ciphertextFile = sys.argv[3]
+
+    if not exists(plaintextFile):
+        print("[Error] Input file", plaintextFile, "does not exist.")
+        exit()
+
+    #still process null files (test-null.txt)
+    if password == "":
+        print("[Warning] Empty Password")
+
+    readPlaintextFile = open(plaintextFile, "rb")
+    writeToCiphertextFile = open(ciphertextFile, "wb")
+    seed = sbdm(password)
+    if DEBUG:
+        print("Plaintext File:\"", plaintextFile + "\"", "Ciphertext File:", ciphertextFile + "\"")
+
+    print("using seed=" + str(seed) + " from password=\"" + password +"\"")
+
+    global INIT_VECTOR
+    global KEY
+    global CURR_KEYSTREAM_VAL
+    global PREV_CIPHER_BLOCK
+    createInitVector(password)
+    if DEBUG:
+        temp = "[ " + ' '.join('{:02x}'.format(x) for x in INIT_VECTOR) + " ]"
+        print("INIT_VECTOR:", temp)
+
+    isFirstBlock = 1
+    isLastBlock = 0
+
+    #while readBlock := readPlaintextFile.read(16):
+    while not isLastBlock:
+        readBlock = readPlaintextFile.read(MAX_BLOCK_SIZE)
+        #have to generate padding for block
+        
+        if len(readBlock) < MAX_BLOCK_SIZE:
+            if DEBUG:
+                print("GENERATING PADDING")
+            readBlock = generatePadding(readBlock)
+            isLastBlock = 1
+
+        if DEBUG:
+            print("readBlock:", readBlock)
+            temp = "[ " + ' '.join('{:02x}'.format(x) for x in readBlock) + " ]"
+            print("readBlock:", temp)
+
+        temp_block = bytearray()
+        if isFirstBlock:
+            #use IV instead of previous ciphertext_block
+            if DEBUG:
+                print("First Iteration, using INIT_VECTOR:")
+                temp = "[ " + ' '.join('{:02x}'.format(x) for x in INIT_VECTOR) + " ]"
+                print("INIT_VECTOR:", temp)
+            temp_block = cipherBlockChaining(readBlock, INIT_VECTOR)
+            isFirstBlock = 0
+        else:
+            temp_block = cipherBlockChaining(readBlock, PREV_CIPHER_BLOCK)
+        
+        KEY = createKey(CURR_KEYSTREAM_VAL)
+
+        temp_block = shuffleBytes(temp_block)
+        cipherBlock = cipherBlockChaining(temp_block, KEY)
+        PREV_CIPHER_BLOCK = cipherBlock
+
+        writeToCiphertextFile.write(cipherBlock)
+    
+    writeToCiphertextFile.close()
+    readPlaintextFile.close()
+        
+if __name__ == "__main__":
+    main()

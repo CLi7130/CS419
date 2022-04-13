@@ -1,0 +1,123 @@
+#!/usr/bin/python3
+
+
+# Name: Craig Li
+# netID: craigli
+# Project 3 - Part 1
+# CS419 - Section 01
+
+
+# take 3 params - vencrypt keyfile ciphertext message
+# to encrypt:
+#   find intersection
+#   row = keystream letter
+#   column = plaintext (message) letter
+# based on 256x256 grid of hex values (0-255 or 0-0xff)
+
+#   ciphertext is intersection of col[plaintext_key] and row[keystream_key]
+# to encrypt:
+#   ciphertext[n] = [row=plaintext[n]][column=key[i]]
+#   n = n+1
+#   i = (i+1) % length(key)
+
+import sys
+import os
+from os.path import exists
+
+DEBUG = 0
+
+def main():
+
+    if(len(sys.argv) != 4):
+        print("[Error] Invalid Number of Arguments\n")
+        exit()
+
+    key = sys.argv[1]
+    message = sys.argv[2]
+    ciphertext = sys.argv[3]
+
+    if not exists(key):
+        print("[Error] Key File (", key, ") not found.")
+        exit()
+    elif not exists(message):
+        print("[Error] Message File (", message, ") not found.")
+        exit()  
+
+    # while you haven't reached the end of the plaintext (message)
+    #   read one byte from message
+    #   read next byte from key (this needs to be repeated as long as there is still a message)
+    #   find matching value in 'grid'
+    #       do this by adding byte values together to get byte value
+    #   transcribe byte to ciphertext
+    #   end loop
+
+    # Possible error conditions (TODO):
+    # key file size is 0
+    # message file size is 0
+
+    #open key file so that you can read bytes
+    #we can read the whole file into memory according to the writeup
+
+    keySize = os.stat(key).st_size
+    # read key into list, according to writeup we can fit entire key into memory
+    keyFile = open(key, "rb")
+    keyByte = list(keyFile.read())
+
+    if keySize == 0: 
+        #error checking - empty key
+        print("[Error] empty key file")
+        exit()
+    else:
+        print("keyfile=" + key + ", length=" + str(keySize))
+
+    #open ciphertext file so you can write bytes to it
+    cipherFile = open(ciphertext, "wb")
+
+    msgSize = os.stat(message).st_size
+    if msgSize == 0:
+        #error checking - message is null
+        cipherFile.close()
+        exit()
+
+    
+    keyBytePtr = 0
+    keyVal = 0
+
+    with open(message, "rb") as msgFile:
+        while msgByte := msgFile.read(1):
+
+            keyVal = keyByte[keyBytePtr]
+            
+            msgByteInt = int.from_bytes(msgByte, byteorder=sys.byteorder)
+            encryptedByteInt = (keyVal + msgByteInt) % 256
+
+            encryptedByte = encryptedByteInt.to_bytes(1, sys.byteorder)
+            if DEBUG:
+                print()
+                print("keyByte: " + str(keyVal))
+                print("keyByte Char: " + chr(keyVal))
+                
+                print("msgByte: " + str(msgByte))
+                print("msgByte intvalue: " + str(msgByteInt))
+                #print("msgByte char: " + chr(msgByteInt))
+                
+
+                print("Encrypted: " + str(encryptedByteInt))
+                print("Encrypted Char: " + chr(encryptedByteInt))
+                print("Encrypted (byte value): " + str(encryptedByte))   
+
+            cipherFile.write(encryptedByte)
+            
+            keyBytePtr = keyBytePtr + 1
+            if keyBytePtr == keySize:
+                #reset keyBytePtr to beginning of key
+                #assumes key is shorter than message
+                # this shouldn't matter if key is longer than message
+                keyBytePtr = 0
+
+    cipherFile.close()
+    keyFile.close()
+    msgFile.close()
+
+if __name__ == "__main__":
+    main()

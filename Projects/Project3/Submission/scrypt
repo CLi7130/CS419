@@ -1,0 +1,82 @@
+#!/usr/bin/python3
+
+import sys
+import os
+from os.path import exists
+
+# given values for Linear Congruential Generator
+LCG_MODULUS = 256
+LCG_MULTIPLIER = 1103515245
+LCG_INCREMENT = 12345
+
+DEBUG = 0
+PYTHON_SDBM_MOD = 18446744073709551616
+
+# Linear Congruential Generator
+def getLCGValue(seed):
+    seed = (LCG_MULTIPLIER * seed + LCG_INCREMENT) % LCG_MODULUS
+    return seed
+
+#sdbm hash algorithm, need to mod hash because python << works differently
+def sbdm(password: str) -> int:
+    hash = 0
+    for c in password:
+        hash = ord(c) + (hash << 6) + (hash << 16) - hash
+        hash = hash % PYTHON_SDBM_MOD
+    return hash
+
+
+def main():
+
+    if len(sys.argv) != 4:
+        print("[Error] Invalid Number of Arguments")
+        exit()
+
+    #put in error checking for null/missing values/arguments
+
+    password = sys.argv[1]
+    inputFile = sys.argv[2]
+    outputFile = sys.argv[3]
+
+    if not exists(inputFile):
+        print("[Error] Input file does not exist.")
+        exit()
+
+    if password == "" or inputFile == "" or outputFile == "":
+        print("[Error] Null input")
+        exit()
+
+    readInput = open(inputFile, "rb")
+    writeOutput = open(outputFile, "wb")
+    seed = sbdm(password)
+
+    print("using seed=" + str(seed) + " from password=\"" + password +"\"")
+
+    while readByte := readInput.read(1):
+        #get next value from LCG
+        seed = getLCGValue(seed)
+        readByteInt = int.from_bytes(readByte, sys.byteorder)
+
+        #ciphertext = plaintext xor keytext
+        cipherInt = readByteInt ^ seed
+        #convert int value to byte value
+        cipherValue = chr(cipherInt)
+        cipherByte = cipherInt.to_bytes(1, sys.byteorder)
+
+        if DEBUG:
+            print(hex(readByteInt), "(" 
+                + chr(readByteInt) + ")"
+                + " xor ", hex(seed), 
+                "(" + chr(seed) + ")"
+                + " = ", hex(cipherInt), 
+                "(",  cipherValue, ")"
+                )
+        
+        writeOutput.write(cipherByte)
+
+    readInput.close()
+    writeOutput.close()
+
+        
+if __name__ == "__main__":
+    main()

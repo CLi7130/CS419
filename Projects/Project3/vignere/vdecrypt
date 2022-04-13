@@ -1,0 +1,92 @@
+#!/usr/bin/python3
+
+# Name: Craig Li
+# netID: craigli
+# Project 3 - Part 1
+# CS419 - Section 01
+
+
+import os
+import sys
+from os.path import exists
+
+DEBUG = 0
+
+def main():
+
+    if(len(sys.argv) != 4):
+        print("[Error] Invalid Number of Arguments\n")
+        exit()
+
+    key = sys.argv[1]
+    ciphertext = sys.argv[2]
+    message = sys.argv[3]
+
+    if not exists(key):
+        print("[Error] Key File (", key, ") not found.")
+        exit()
+    elif not exists(ciphertext):
+        print("[Error] Ciphertext File (", ciphertext, ") not found.")
+        exit()  
+
+    keySize = os.stat(key).st_size
+    # read key into list, according to writeup we can fit entire key into memory
+    keyFile = open(key, "rb")
+    keyByte = list(keyFile.read())
+
+    msgFile = open(message, "wb")
+    cipherSize = os.stat(ciphertext).st_size
+
+    #error checking - null key or ciphertext
+    if keySize == 0:
+        print("[Error] empty key file")
+        exit()
+    elif cipherSize == 0:
+        msgFile.close()
+        print("[Error] empty cipher file")
+        exit()
+    else:
+        print("keyfile=" + key + ", length=" + str(keySize))
+    
+    keyVal = 0
+    keyBytePtr = 0
+    with open(ciphertext, "rb") as readCipher:
+        while cipherByte := readCipher.read(1):
+            
+            keyVal = keyByte[keyBytePtr]
+            
+            cipherByteInt = int.from_bytes(cipherByte, sys.byteorder)
+            #int.from_bytes(cipherByte, byteorder=sys.byteorder)
+            msgByteInt = ((cipherByteInt - keyVal) + 256) % 256
+            msgByte = msgByteInt.to_bytes(1, sys.byteorder)
+
+            if DEBUG:
+                print("found " + str(cipherByteInt) + "("
+                        + chr(cipherByteInt)
+                        + ") in column " 
+                        + str(keyVal)
+                        + "(" + chr(keyVal)
+                        + ") at row "
+                        + str(msgByteInt)
+                        + "(" + chr(msgByteInt)
+                        + ")"
+                        )
+
+            msgFile.write(msgByte)
+            
+            keyBytePtr = keyBytePtr + 1
+            if keyBytePtr == keySize:
+                #reset keyBytePtr to beginning of key
+                #assumes key is shorter than message
+                # this shouldn't matter if key is longer than message
+                keyBytePtr = 0
+
+    readCipher.close()
+    keyFile.close()
+    msgFile.close()
+
+
+
+
+if __name__ == "__main__":
+    main()

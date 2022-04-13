@@ -10,6 +10,8 @@
 // RUID: 133000399
 // your code for readdir goes here
 
+int DEBUG = 0;
+
 /*
 Your assignment is to create an alternate version of the readdir Linux library function that will:
     - Call the real version of readdir
@@ -48,6 +50,11 @@ struct dirent *readdir(DIR *dirp){
      */
     //extra credit implementation
     while(token != NULL){
+        if(DEBUG){
+            printf("Token: %s\n", token);
+            printf("filename: %s\n", file->d_name);
+        }
+
         //check each hidden filename against current filename
         if(strcmp(token, file->d_name) == 0){
             //increment to next file, then reset token list
@@ -61,6 +68,7 @@ struct dirent *readdir(DIR *dirp){
         else{
             //go to next hidden filename
             token = strtok(NULL, ":");
+            
         }
     }
     return (struct dirent *) file;
