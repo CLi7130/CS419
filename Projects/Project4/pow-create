@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import hashlib
 import os
 from os.path import exists
@@ -45,19 +47,19 @@ from itertools import product
 DEBUG = 0
 
 # globals that we can use later for printing
-FILE_HASH_VAL = 0
+FILE_HASH_VAL = None
 ITERATIONS = 0
-PROOF_OF_WORK = bytearray()
-FINAL_HASH = bytearray()
-ACTUAL_LEADING_ZERO_BITS = 0
-REQUESTED_LEADING_ZERO_BITS = 0
-COMPUTE_TIME = 0
+PROOF_OF_WORK = None
+FINAL_HASH = None
+ACTUAL_LEADING_ZERO_BITS = None
+REQUESTED_LEADING_ZERO_BITS = None
+COMPUTE_TIME = None
 VALID_CHAR_ARRAY = []
 
 # if we reach one billion iterations, we've been running too long
 ITERATION_UPPER_BOUND = 1000000000
 
-# encodes a given byte array from a file with SHA-256, and returns a hash object of the byte array
+# encodes a file with SHA-256, and returns a string representation of the hex value of the input
 def getHashValHexDigest(inputFile):
 
     # SHA-256 Hash Value
@@ -137,16 +139,14 @@ def generateProofOfWork():
     for num in range(1, 8):     
 
         # this creates a list of the cartesian product of all valid chars for a given length
-        cartesianProduct = list(product(VALID_CHAR_ARRAY, repeat=num))
+        cartesianProduct = product(VALID_CHAR_ARRAY, repeat=num)
         for tuple in cartesianProduct:
-
             # generate usable string from tuples
             suffix = ''.join(tuple)
             # actual answers are verified/stored in testProofOfWork Function
             retVal = testProofOfWork(suffix)
-
-            # found valid proof of work, go back to main
             if retVal is True:
+                # found valid proof of work, go back to main
                 return
 
 # creates array of all possible printable characters in ASCII
@@ -178,7 +178,7 @@ def main():
     numBits = sys.argv[1]
     inputFile = sys.argv[2]
     
-    if (not numBits.isdigit()) or int(numBits) < 0:
+    if (not numBits.isdigit()) or int(numBits) <= 0:
         print("[Error] Please put a positive integer value for nbits")
         exit()
     
@@ -206,17 +206,16 @@ def main():
         print("numBits:", numBits)
         print("File Path:", inputFile)
 
-    readInput = open(inputFile, "rb").read()
-
-    if DEBUG:
-        print("Read From File:", readInput)
-    
+    readInputFile = open(inputFile, "rb")
+    readInput = readInputFile.read()
     FILE_HASH_VAL = getHashValHexDigest(readInput)
     generateProofOfWork()
 
     #this needs to go at end of program, before things get printed
     timeEnd = time.perf_counter()
     COMPUTE_TIME = timeEnd - timeStart
+
+    readInputFile.close()
 
     # print headers at end of program
     print("File:", inputFile)
